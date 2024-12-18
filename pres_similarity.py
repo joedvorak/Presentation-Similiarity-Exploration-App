@@ -112,6 +112,7 @@ with st.expander("Model Information"):
         | 84      | 307             | 379.5  | 404  | 473             | 1010    |""")
 
 with st.expander("Similarity Metric Descriptions"):
+    st.markdown("*All Similarity Metrics range from 0.0 (no relation) to 1.0 (identical). Scales are relevative and not absolute. They vary by model and cannot be compared across models. (e.g. A 0.6 is a \"poor\" similiarity with the nomic-embed-text-v1.5 model, but an \"average\" similiary with the cde-small-v1 model.*")
     st.markdown("**Presentation-Session Similarity:**  This *presentation metric* is the average cosine similarity between a presentation and all others in its assigned session. It measures how similar a presentation is to others in its session. It does not include a presentation's similarity with itself, which is always 1.0.")
     st.write("It is calculated as:")
     # Using raw strings to perserve LaTex format.
@@ -120,7 +121,7 @@ with st.expander("Similarity Metric Descriptions"):
     st.markdown(r'- $PSS(p_i)$ is the Presentation-Session Similarity for presentation $p_i$,')
     st.markdown(r'- $s_j$ is the session where presentation $p_i$ is assigned,')
     st.markdown(r'- $|s_j|$ is the number of presentations in session $s_j$,')
-    st.markdown(r'- $p_k$ is a presention in session $s_j$ other than $p_i$, and')
+    st.markdown(r'- $p_k$ is a presentation in session $s_j$ other than $p_i$, and')
     st.markdown(r'- $sim(p_i, p_k)$ is the cosine similarity between presentation $p_i$ and presentation $p_k$.')
     st.write("**Session Similarity:** This *session metric* is the average cosine similarity between all presentations assigned to the same session. It is an overall indicator of how well a session focuses on one topic.")
     st.write("It is calculated as:")
@@ -143,7 +144,7 @@ with st.expander("Similarity Metric Descriptions"):
     st.markdown(r'$RD(p_i) = PSS(p_i) - SS(s_j)$')
     st.write("where:")
     st.markdown(r'- $RD(p_i)$ is the Raw Deviation for presentation $p_i$.')
-    st.write("**Standardized Deviation:** This *presentation metric* is the Raw Deviation of the presentation divided by the Session Standard Deviation of the session to which it is assigned. This standardizes the similarity difference based on the variabilty in a session. This is analogous to a z-score. It is most useful for identifying single presentations that stand out from an otherwise very focused session.")
+    st.write("**Standardized Deviation:** This *presentation metric* is the Raw Deviation of the presentation divided by the Session Standard Deviation of the session to which it is assigned. This standardizes the similarity difference based on the variability in a session. This is analogous to a z-score. It is most useful for identifying single presentations that stand out from an otherwise very focused session.")
     st.write("It is calculated as:")
     # Using raw strings to perserve LaTex format.
     st.markdown(r'$SD(p_i) = \frac{RD(p_i)}{SSD(s_j)}$')
