@@ -51,6 +51,38 @@ def calculate_cluster_similarities(similarity_matrix, labels):
 
 st.title("Presentation Similarity Exploration Tool")
 
+def calculate_session_similarity(presentations, similarity_matrix):
+    """
+    Calculates the average similarity between presentations in different sessions.
+
+    Args:
+      presentations: A pandas DataFrame with presentation information, including an 
+                     'Original Session' column.
+      similarity_matrix: A NumPy array representing the pairwise similarity between 
+                         presentations.
+
+    Returns:
+      A tuple containing:
+        - A NumPy array representing the session-level similarity matrix.
+        - A NumPy array of unique session names in the order they appear in the 
+          similarity matrix.
+    """
+    # Create a new presentation dataframe that has constant indexing. 
+    # The original presentation dataframe is still numbered by its order in 
+    # the initial dataset.
+    presentations = presentations.reset_index()
+    sessions = presentations['Original Session'].unique()
+    num_sessions = len(sessions)
+    session_similarity = np.zeros((num_sessions, num_sessions))
+
+    for i, session1 in enumerate(sessions):
+        for j, session2 in enumerate(sessions):
+            pres_idx1 = presentations[presentations['Original Session'] == session1].index
+            pres_idx2 = presentations[presentations['Original Session'] == session2].index
+            session_similarity[i, j] = np.mean(similarity_matrix[np.ix_(pres_idx1, pres_idx2)])
+
+    return session_similarity, sessions
+
 # Password Check to unlock abstracts.
 def password_entered():
     """Checks whether a password entered by the user is correct."""
@@ -91,12 +123,17 @@ model = st.radio("Select embedding model to use:",
                   index = 0)
 if model == 'all-MiniLM-L6-v2':
     df_similarity = pd.read_pickle("miniLM_similarities_oral.pkl")
+    df_session_similarity = pd.read_pickle("miniLM_session_similarities_oral.pkl")
 elif model == 'all-mpnet-base-v2':
     df_similarity = pd.read_pickle("mpnet_similarities_oral.pkl")
+    df_session_similarity = pd.read_pickle('mpnet_session_similarities_oral.pkl') 
 elif model == 'cde-small-v1':
     df_similarity = pd.read_pickle("cde_similarities_oral.pkl")
+    df_session_similarity = pd.read_pickle('cde_session_similarities_oral.pkl')
 else:
     df_similarity = pd.read_pickle("nomic_similarities_oral.pkl")
+    df_session_similarity = pd.read_pickle('nomic_session_similarities_oral.pkl')
+
 st.write("nomic-embed-text-v1.5 is the default model. Others are provided for comparison.")
 with st.expander("Model Information"):
     st.write("Each model has differences in embedding to capture meaning and in the amount of text that they can process. The nomic-embed-text-v1.5 model processes the entire title and abstract. The cde-small-v1 model has the highest quality scores.")
@@ -150,6 +187,16 @@ with st.expander("Similarity Metric Descriptions"):
     st.markdown(r'$SD(p_i) = \frac{RD(p_i)}{SSD(s_j)}$')
     st.write("where:")
     st.markdown(r'- $SD(p_i)$ is the Standardized Deviation for presentation $p_i$.')
+    st.write("**Session-Session Similarity:** This *session to session metric* is the average similarity between all presentations in one session with all those in another session. It indicates how similar the topic of one session is to the topic of another session.")
+    st.write("It is calculated as:")
+    # Using raw strings to perserve LaTex format.
+    st.markdown(r'$SSS(s_j, s_m) = \frac{1}{|s_j| \cdot |s_m|} \sum_{p_i \in s_j} \sum_{p_k \in s_m} sim(p_i, p_k)$')
+    st.write("where:")
+    st.markdown(r'- $SSS(s_j, s_m)$ is the Session-Session Similarity between session $s_j$ and session $s_m$,')
+    st.markdown(r'- $|s_j|$ is the number of presentations in session $s_j$,')
+    st.markdown(r'- $|s_m|$ is the number of presentations in session $s_m$, and')
+    st.markdown(r'- $\sum_{p_i \in s_j} \sum_{p_k \in s_m}$ is the sum of the cosine similarities over all pairs of presentations, where $p_i$ belongs to session $s_j$ and $p_k$ belongs to session $s_m$, and')
+    st.markdown(r'- $sim(p_i, p_k)$ is the cosine similarity between presentation $p_i$ and presentation $p_k$.')
 pres_session_similarity, session_similarity = calculate_cluster_similarities(df_similarity.to_numpy(), np.array(df_presentations['Original Session']))
 df_presentations['Presentation-Session Similarity'] = pres_session_similarity
 df_presentations['Session Similarity'] = df_presentations['Original Session'].map(session_similarity)
@@ -273,6 +320,25 @@ with tab_session:
                     "Standardized Deviation" : st.column_config.NumberColumn(format='%.3f'),
                 },
             )
+        st.header("Most Similar Sessions")
+        # Create a Series with the  most similar sessions
+        similar_sessions = df_session_similarity[selected_session].sort_values(ascending=False) 
+        # Remove the selected presentation itself from the similar presentations
+        similar_sessions = similar_sessions.drop(selected_session)
+        similar_sessions_df = pd.DataFrame(similar_sessions)
+        st.write("Other sessions that are most similar to:")
+        st.subheader(similar_sessions_df.columns[0])
+        st.write("This list is initially sorted by similarity to the selected session.")
+        similar_sessions_df = similar_sessions_df.rename(columns={
+            similar_sessions_df.columns[0]:'Session-Session Similarity Score',
+            })
+        similar_sessions_df.insert(0, "Session Similarity Rank", np.arange(1,similar_sessions_df.shape[0]+1))
+        st.dataframe(
+            similar_sessions_df,
+            use_container_width=True,
+            hide_index=False,)
+
+
 with tab_edit:
     with st.expander('**Instructions** Click to expand'):
         st.write("You can reassign presentations to sessions in this table. Just double click on the session name in the \"Assigned Session\" Column. You can change the name to any text. This tool groups all the presentations that share the same session name after each edit. Then it calculates the similarities and creates the session lists and tables below.")
