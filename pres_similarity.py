@@ -115,8 +115,10 @@ else:
     df_presentations = pd.read_pickle("df_pres_basic.pkl")
 
 model = st.radio("Select embedding model to use:",
-                 ['nomic-embed-text-v1.5',
-                  'cde-small-v1',
+                 ['cde-small-v1',
+                  'cde-small-v2',
+                  'gemini-embedding-001',
+                  'nomic-embed-text-v1.5',
                   'all-mpnet-base-v2',
                   'all-MiniLM-L6-v2'],
                   horizontal=True,
@@ -130,11 +132,17 @@ elif model == 'all-mpnet-base-v2':
 elif model == 'cde-small-v1':
     df_similarity = pd.read_pickle("cde_similarities_oral.pkl")
     df_session_similarity = pd.read_pickle('cde_session_similarities_oral.pkl')
+elif model == 'cde-small-v2':
+    df_similarity = pd.read_pickle("cde_similarities_oral2.pkl")
+    df_session_similarity = pd.read_pickle('cde_session_similarities_oral2.pkl')
+elif model == 'gemini-embedding-001':
+    df_similarity = pd.read_pickle("gemini_similarities_oral.pkl")
+    df_session_similarity = pd.read_pickle('gemini_session_similarities_oral.pkl')
 else:
     df_similarity = pd.read_pickle("nomic_similarities_oral.pkl")
     df_session_similarity = pd.read_pickle('nomic_session_similarities_oral.pkl')
 
-st.write("nomic-embed-text-v1.5 is the default model. Others are provided for comparison.")
+st.write("cde-small-v1 is the default model. Others are provided for comparison.")
 with st.expander("Model Information"):
     st.write("Each model has differences in embedding to capture meaning and in the amount of text that they can process. The nomic-embed-text-v1.5 model processes the entire title and abstract. The cde-small-v1 model has the highest quality scores.")
     st.markdown("""
@@ -147,38 +155,40 @@ with st.expander("Model Information"):
         | Minimum | 25th Percentile | Median | Mean | 75th Percentile | Maximum |
         |---------|-----------------|--------|------|-----------------|---------|
         | 84      | 307             | 379.5  | 404  | 473             | 1010    |""")
+    st.write("The cde-small-v2 model has been added for comparison. While an update, it does not appear to perform as well as the cde-small-v1 model.")
+    st.write("The gemini-embedding-001 model is a new model from Google that is designed to be more efficient and effective for text embeddings. As of July 29, 2025, it has the highest ranking in on the updated [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard). It is not an open model and was not analyzed in the associated manuscript, but is provided for comparisons.")
 
 with st.expander("Similarity Metric Descriptions"):
-    st.markdown("*All Similarity Metrics range from 0.0 (no relation) to 1.0 (identical). Scales are relevative and not absolute. They vary by model and cannot be compared across models. (e.g. A 0.6 is a \"poor\" similiarity with the nomic-embed-text-v1.5 model, but an \"average\" similiary with the cde-small-v1 model.*")
-    st.markdown("**Presentation-Session Similarity:**  This *presentation metric* is the average cosine similarity between a presentation and all others in its assigned session. It measures how similar a presentation is to others in its session. It does not include a presentation's similarity with itself, which is always 1.0.")
+    st.markdown("*All Similarity Metrics range from -1.0 (opposite) to 0.0 (no relation) to 1.0 (identical). Scales are relevative and not absolute. They vary by model and cannot be compared across models. (e.g. A 0.6 is a \"poor\" similiarity with the nomic-embed-text-v1.5 model, but an \"average\" similiary with the cde-small-v1 model.*")
+    st.markdown("**Presentation Session Fit:**  This *presentation metric* is the average cosine similarity between a presentation and all others in its assigned session. It measures how similar a presentation is to others in its session. It does not include a presentation's similarity with itself, which is always 1.0.")
     st.write("It is calculated as:")
     # Using raw strings to perserve LaTex format.
-    st.markdown(r'$PSS(p_i) = \frac{1}{|s_j| - 1} \sum_{\substack{p_k \in s_j \\ p_k \neq p_i}} sim(p_i, p_k)$')
+    st.markdown(r'$PSF(p_i) = \frac{1}{|s_j| - 1} \sum_{\substack{p_k \in s_j \\ p_k \neq p_i}} sim(p_i, p_k)$')
     st.write("where:")
-    st.markdown(r'- $PSS(p_i)$ is the Presentation-Session Similarity for presentation $p_i$,')
+    st.markdown(r'- $PSF(p_i)$ is the Presentation Session Fit for presentation $p_i$,')
     st.markdown(r'- $s_j$ is the session where presentation $p_i$ is assigned,')
     st.markdown(r'- $|s_j|$ is the number of presentations in session $s_j$,')
     st.markdown(r'- $p_k$ is a presentation in session $s_j$ other than $p_i$, and')
     st.markdown(r'- $sim(p_i, p_k)$ is the cosine similarity between presentation $p_i$ and presentation $p_k$.')
-    st.write("**Session Similarity:** This *session metric* is the average cosine similarity between all presentations assigned to the same session. It is an overall indicator of how well a session focuses on one topic.")
+    st.write("**Session Coherence:** This *session metric* is the average cosine similarity between all presentations assigned to the same session. It is an overall indicator of how well a session focuses on one topic.")
     st.write("It is calculated as:")
     # Using raw strings to perserve LaTex format.
-    st.markdown(r'$SS(s_j) = \frac{1}{|s_j|(|s_j| - 1)} \sum_{\substack{p_i \in s_j \\ p_k \in s_j \\ p_i \neq p_k}} sim(p_i, p_k)$')
+    st.markdown(r'$SC(s_j) = \frac{1}{|s_j|(|s_j| - 1)} \sum_{\substack{p_i \in s_j \\ p_k \in s_j \\ p_i \neq p_k}} sim(p_i, p_k)$')
     st.write("where:")
-    st.markdown(r'- $SS(s_j)$ is the Session Similarity for session $s_j$,')
+    st.markdown(r'- $SC(s_j)$ is the Session Coherence for session $s_j$,')
     st.markdown(r'- $\sum_{\substack{p_i \in s_j \\ p_k \in s_j \\ p_i \neq p_k}}$ is the sum the cosine similarities over all pairs of distinct presentations ($p_i$, $p_k$) within the session $s_j$, ignoring self-similarity, hence $p_i \neq p_k$, and')
     st.markdown(r'- $|s_j|(|s_j| - 1)$ is number of all possible pairs of presentations $(p_i, p_k)$ within the session $s_j$.')
-    st.write("**Session Std Dev:** This *session metric* is the standard deviation of the Presentation-Session Similarity scores of the presentations assigned to that session. Measures the variation in Presentation-Session scores.  Session Similarity is a better measure of focus, but this metric can be used to identify sessions with outlier presentations.")
+    st.write("**Session Std Dev:** This *session metric* is the standard deviation of the Presentation Session Fit scores of the presentations assigned to that session. Measures the variation in Presentation Session Fit scores.  Session Coherence is a better measure of focus, but this metric can be used to identify sessions with outlier presentations.")
     st.write("It is calculated as:")
     # Using raw strings to perserve LaTex format.
-    st.markdown(r'$SSD(s_j) = \sqrt{\frac{1}{|s_j| - 1} \sum_{p_i \in s_j} \left( PSS(p_i) - \overline{PSS(s_j)} \right)^2}$')
+    st.markdown(r'$SSD(s_j) = \sqrt{\frac{1}{|s_j| - 1} \sum_{p_i \in s_j} \left( PSF(p_i) - \overline{PSF(s_j)} \right)^2}$')
     st.write("where:")
-    st.markdown(r'- $SSD(s_j))$ is the Session Standard Deviation for session $s_j$, and')
-    st.markdown(r'- $\overline{PSS(s_j)}$ is the average Presentation-Session Similarity for all presentations in session $s_j$.')
-    st.write("**Raw Deviation:** This *presentation metric* is the difference between a presentation's Presentation-Session Similarity and its session's Session Similarity. A direct measure of the difference in similarity of a presentation and its session.")
+    st.markdown(r'- $SSD(s_j)$ is the Session Standard Deviation for session $s_j$, and')
+    st.markdown(r'- $\overline{PSF(s_j)}$ is the average Presentation Session Fit for all presentations in session $s_j$.')
+    st.write("**Raw Deviation:** This *presentation metric* is the difference between a presentation's Presentation Session Fit and its session's Session Coherence. A direct measure of the difference in similarity of a presentation and its session.")
     st.write("It is calculated as:")
     # Using raw strings to perserve LaTex format.
-    st.markdown(r'$RD(p_i) = PSS(p_i) - SS(s_j)$')
+    st.markdown(r'$RD(p_i) = PSF(p_i) - SC(s_j)$')
     st.write("where:")
     st.markdown(r'- $RD(p_i)$ is the Raw Deviation for presentation $p_i$.')
     st.write("**Standardized Deviation:** This *presentation metric* is the Raw Deviation of the presentation divided by the Session Standard Deviation of the session to which it is assigned. This standardizes the similarity difference based on the variability in a session. This is analogous to a z-score. It is most useful for identifying single presentations that stand out from an otherwise very focused session.")
